@@ -1,4 +1,4 @@
-module github.com/zhongzc/test-vm
+module github.com/zhongzc/vm-test
 
 go 1.16
 
