@@ -57,7 +57,7 @@ func importDataToVM() {
 		for t := 0; t < *tagCount; t++ {
 			tag := uuid.New().String()
 			m := Metrics{Metric: map[string]string{
-				"__name__": "cpu_time",
+				"__name__": "sql_digest",
 				"digest":   tag,
 				"sql":      fmt.Sprintf("SELECT COUNT(?) FROM t_%d_%d", reportTs, t),
 			}}
