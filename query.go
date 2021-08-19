@@ -107,11 +107,11 @@ func logStat() {
 		lock.Unlock()
 
 		hist := hdrhistogram.Import(cp)
-		log.Printf("QPS: %d, p50: %fms, p99: %fms, max: %fms\n",
+		log.Printf("QPS: %d, p50: %fms, p99: %fms, avg: %fms\n",
 			(cur-prev)/(nowTs-prevTs),
 			float64(hist.ValueAtQuantile(50.0))/1000000,
 			float64(hist.ValueAtQuantile(99.0))/1000000,
-			float64(hist.Max())/1000000,
+			float64(hist.Mean())/1000000,
 		)
 		prevTs = nowTs
 		prev = cur
