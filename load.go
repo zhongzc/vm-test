@@ -17,8 +17,8 @@ import (
 
 var (
 	beginTimestamp = flag.Int64("begin-ts", time.Now().Unix(), "begin unix timestamp in second. Can be set an early ts to import tons of data, or a recent ts to import data per minute.")
-	tagCount       = flag.Int("tag-count", 200, "tag count per second")
-	instanceCount  = flag.Int("instance-count", 1000, "instance count")
+	tagCount       = flag.Uint("tag-count", 200, "tag count per second")
+	instanceCount  = flag.Uint("instance-count", 1000, "instance count")
 	url            = flag.String("vm-url", "http://localhost:8428/api/v1/import", "vm import url")
 	gz             = flag.Bool("gzip", false, "compress import requests by gzip")
 )
@@ -54,7 +54,7 @@ func importDataToVM() {
 			jsonw = json.NewEncoder(&buf)
 		}
 
-		for t := 0; t < *tagCount; t++ {
+		for t := uint(0); t < *tagCount; t++ {
 			tag := uuid.New().String()
 			m := Metrics{Metric: map[string]string{
 				"__name__": "sql_digest",
@@ -68,7 +68,7 @@ func importDataToVM() {
 			}
 			atomic.AddInt64(&metricsWrittenCount, 1)
 
-			for ins := 0; ins < *instanceCount; ins++ {
+			for ins := uint(0); ins < *instanceCount; ins++ {
 				m := Metrics{Metric: map[string]string{
 					"__name__": "cpu_time",
 					"tag":      tag,
