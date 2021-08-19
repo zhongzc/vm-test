@@ -43,15 +43,15 @@ go run load.go -begin-ts $((`date +%s`-24*60*60))
 ```
 -freshness string
     How fresh are the data (default "1h")
--instance-count uint
-    instance count (default 1000)
+-instance-set string
+    Instance set (default "0-2,4-5")
 -sum-window string
     Window to sum over datapoints (default "1m")
 -time-range string
     Time range of queries (default "5m")
 -vm-url string
     vm query url (default "http://localhost:8428/api/v1/query_range")
--workers uint
+-worker-count uint
     Count of workers (default 1)
 ```
 
