@@ -9,8 +9,11 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/HdrHistogram/hdrhistogram-go"
 )
 
 var (
@@ -37,7 +40,7 @@ func main() {
 		go runQueries()
 	}
 
-	logThroughput()
+	logStat()
 }
 
 func runQueries() {
@@ -60,6 +63,8 @@ func runQueries() {
 			q.Add("end", strconv.Itoa(int(end)))
 			q.Add("step", strconv.Itoa(int(step)))
 			req.URL.RawQuery = q.Encode()
+
+			now := time.Now()
 			if resp, err := http.DefaultClient.Do(req); err != nil {
 				log.Panic(err)
 			} else {
@@ -70,15 +75,24 @@ func runQueries() {
 				if err := resp.Body.Close(); err != nil {
 					log.Panic(err)
 				}
+
+				lock.Lock()
+				_ = hist.RecordValue(int64(time.Now().Nanosecond() - now.Nanosecond()))
+				lock.Unlock()
 				atomic.AddInt64(&metricsWrittenCount, 1)
 			}
 		}
 	}
 }
 
-var metricsWrittenCount int64 = 0
+var (
+	metricsWrittenCount int64 = 0
 
-func logThroughput() {
+	lock sync.Mutex
+	hist = hdrhistogram.New(1, 30_000_000_000_000, 4)
+)
+
+func logStat() {
 	prev := atomic.LoadInt64(&metricsWrittenCount)
 	prevTs := time.Now().Unix()
 
@@ -86,7 +100,19 @@ func logThroughput() {
 		time.Sleep(5 * time.Second)
 		cur := atomic.LoadInt64(&metricsWrittenCount)
 		nowTs := time.Now().Unix()
-		log.Printf("QPS: %d metrics/s\n", (cur-prev)/(nowTs-prevTs))
+
+		lock.Lock()
+		cp := hist.Export()
+		hist.Reset()
+		lock.Unlock()
+
+		hist := hdrhistogram.Import(cp)
+		log.Printf("QPS: %d, p50: %fms, p99: %fms, max: %fms\n",
+			(cur-prev)/(nowTs-prevTs),
+			float64(hist.ValueAtQuantile(50.0))/1000000,
+			float64(hist.ValueAtQuantile(99.0))/1000000,
+			float64(hist.Max())/1000000,
+		)
 		prevTs = nowTs
 		prev = cur
 	}

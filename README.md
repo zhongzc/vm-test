@@ -5,7 +5,7 @@
 ## Run VictoriaMetrics
 
 ```shell
-docker run --name victoria-metrics --rm -d --network host victoriametrics/victoria-metrics -selfScrapeInterval=10s
+docker run --name victoria-metrics --rm -d --network host victoriametrics/victoria-metrics -selfScrapeInterval=10s -search.maxUniqueTimeseries 2147483647
 ```
 
 ## Run Grafana
