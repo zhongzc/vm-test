@@ -125,23 +125,22 @@ func parseInstanceList() {
 				instanceList = append(instanceList, n)
 			}
 		} else if len(lr) == 2 {
-			if lr[0] >= lr[1] {
-				log.Panicf("%d should be less than %d", lr[0], lr[1])
+			var l, r int
+			if n, err := strconv.Atoi(lr[0]); err != nil {
+				log.Panic(err)
 			} else {
-				var l, r int
-				if n, err := strconv.Atoi(lr[0]); err != nil {
-					log.Panic(err)
-				} else {
-					l = n
-				}
-				if n, err := strconv.Atoi(lr[1]); err != nil {
-					log.Panic(err)
-				} else {
-					r = n
-				}
-				for i := l; i <= r; i++ {
-					instanceList = append(instanceList, i)
-				}
+				l = n
+			}
+			if n, err := strconv.Atoi(lr[1]); err != nil {
+				log.Panic(err)
+			} else {
+				r = n
+			}
+			if l >= r {
+				log.Panicf("%d should be less than %d", lr[0], lr[1])
+			}
+			for i := l; i <= r; i++ {
+				instanceList = append(instanceList, i)
 			}
 		} else {
 			log.Panicf("unexpected instance set: %s", is)
