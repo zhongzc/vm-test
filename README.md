@@ -1,4 +1,4 @@
-# Test Storage Performance of VictoriaMetrics
+# Test Performance of VictoriaMetrics
 
 # Quick Start
 
@@ -53,6 +53,11 @@ go run load.go -begin-ts $((`date +%s`-24*60*60))
     vm query url (default "http://localhost:8428/api/v1/query_range")
 -workers uint
     Count of workers (default 1)
+```
+
+### Run Query
+```shell
+go run query.go
 ```
 
 Click http://127.0.0.1:3000 to see how is going
