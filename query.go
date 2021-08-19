@@ -48,8 +48,6 @@ func runQueries() {
 		start := end - timeRangeSecs
 		step := sumWindowSecs
 
-		fmt.Println(instanceList)
-
 		instance := instanceList[rand.Intn(len(instanceList))]
 		query := fmt.Sprintf("sum(label_replace(topk(5, sum_over_time(cpu_time{instance=\"tikv-%d\"}[%s])), \"digest\", \"$1\", \"tag\", \"(.*)\") * on(digest) group_left(sql) sql_digest{}) by (instance, sql)", instance, *sumWindow)
 
