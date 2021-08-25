@@ -35,8 +35,11 @@ type Tag struct {
 	SQL string
 }
 
+var tags []Tag
+
 func main() {
 	flag.Parse()
+	tags = make([]Tag, *tagCount)
 	parseDuration()
 	go logThroughput()
 	importDataToVM()
@@ -121,7 +124,6 @@ func importDataToVM() {
 
 var (
 	updateTagIntervalSecs int64 = 0
-	tags                        = make([]Tag, *tagCount)
 	lastUpdateTimeSecs    int64 = 0
 )
 
