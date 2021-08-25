@@ -16,12 +16,12 @@ import (
 )
 
 var (
-	beginTimestamp = flag.Int64("begin-ts", time.Now().Unix(), "begin unix timestamp in second. Can be set an early ts to import tons of data, or a recent ts to import data per minute.")
-	tagCount       = flag.Uint("tag-count", 200, "tag count per second")
-	instanceCount  = flag.Uint("instance-count", 1000, "instance count")
-	url            = flag.String("vm-url", "http://localhost:8428/api/v1/import", "vm import url")
-	withPreAgg     = flag.Bool("with-pre-agg", false, "load data with sum over 1m")
-	gz             = flag.Bool("gzip", false, "compress import requests by gzip")
+	beginTimestamp    = flag.Int64("begin-ts", time.Now().Unix(), "begin unix timestamp in second. Can be set an early ts to import tons of data, or a recent ts to import data per minute.")
+	tagCount          = flag.Uint("tag-count", 200, "tag count per second")
+	instanceCount     = flag.Uint("instance-count", 1000, "instance count")
+	updateTagInterval = flag.String("update-tag-interval", "1m", "interval to update tags")
+	url               = flag.String("vm-url", "http://localhost:8428/api/v1/import", "vm import url")
+	gz                = flag.Bool("gzip", false, "compress import requests by gzip")
 )
 
 type Metrics struct {
@@ -30,8 +30,14 @@ type Metrics struct {
 	Timestamps []int64           `json:"timestamps"`
 }
 
+type Tag struct {
+	Tag string
+	SQL string
+}
+
 func main() {
 	flag.Parse()
+	parseDuration()
 	go logThroughput()
 	importDataToVM()
 }
@@ -43,6 +49,7 @@ func importDataToVM() {
 		if reportTs > nowTs {
 			time.Sleep(time.Duration(reportTs-nowTs) * time.Second)
 		}
+		updateTags(reportTs)
 
 		var buf bytes.Buffer
 
@@ -55,12 +62,11 @@ func importDataToVM() {
 			jsonw = json.NewEncoder(&buf)
 		}
 
-		for t := uint(0); t < *tagCount; t++ {
-			tag := uuid.New().String()
+		for _, tag := range tags {
 			m := Metrics{Metric: map[string]string{
 				"__name__": "sql_digest",
-				"digest":   tag,
-				"sql":      fmt.Sprintf("SELECT COUNT(?) FROM t_%d_%d", reportTs, t),
+				"digest":   tag.Tag,
+				"sql":      tag.SQL,
 			}}
 			m.Timestamps = append(m.Timestamps, reportTs*1000)
 			m.Values = append(m.Values, 1)
@@ -72,7 +78,7 @@ func importDataToVM() {
 			for ins := uint(0); ins < *instanceCount; ins++ {
 				m := Metrics{Metric: map[string]string{
 					"__name__": "cpu_time",
-					"tag":      tag,
+					"tag":      tag.Tag,
 					"instance": fmt.Sprintf("tikv-%d", ins),
 				}}
 				for ts := reportTs - 60; ts < reportTs; ts++ {
@@ -82,25 +88,6 @@ func importDataToVM() {
 				}
 				if err := jsonw.Encode(m); err != nil {
 					log.Panic(err)
-				}
-
-				if *withPreAgg {
-					s := int64(0)
-					for _, value := range m.Values {
-						s += value
-					}
-					agg := Metrics{Metric: map[string]string{
-						"__name__": "cpu_time_in_minute",
-						"tag":      tag,
-						"instance": fmt.Sprintf("tikv-%d", ins),
-					},
-						Values:     []int64{s},
-						Timestamps: []int64{reportTs * 1000},
-					}
-					if err := jsonw.Encode(agg); err != nil {
-						log.Panic(err)
-					}
-					atomic.AddInt64(&metricsWrittenCount, 1)
 				}
 			}
 		}
@@ -132,6 +119,24 @@ func importDataToVM() {
 	}
 }
 
+var (
+	updateTagIntervalSecs int64 = 0
+	tags                        = make([]Tag, *tagCount)
+	lastUpdateTimeSecs    int64 = 0
+)
+
+func updateTags(reportSecs int64) {
+	if reportSecs-lastUpdateTimeSecs >= updateTagIntervalSecs {
+		for i := 0; i < len(tags); i++ {
+			tags[i] = Tag{
+				Tag: uuid.New().String(),
+				SQL: fmt.Sprintf("SELECT COUNT(?) FROM t_%d_%d", reportSecs, i),
+			}
+		}
+		lastUpdateTimeSecs = reportSecs
+	}
+}
+
 var metricsWrittenCount int64 = 0
 
 func logThroughput() {
@@ -145,5 +150,13 @@ func logThroughput() {
 		log.Printf("Load rate: %d metrics/s\n", (cur-prev)/(nowTs-prevTs))
 		prevTs = nowTs
 		prev = cur
+	}
+}
+
+func parseDuration() {
+	if d, err := time.ParseDuration(*updateTagInterval); err != nil {
+		log.Panic(err)
+	} else {
+		updateTagIntervalSecs = int64(d.Seconds())
 	}
 }
