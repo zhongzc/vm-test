@@ -23,6 +23,7 @@ var (
 	sumWindow   = flag.String("sum-window", "1m", "Window to sum over datapoints")
 	instanceSet = flag.String("instance-set", "0-2,4-5", "Instance set")
 	url         = flag.String("vm-url", "http://localhost:8428/api/v1/query_range", "vm query url")
+	usePreAgg   = flag.Bool("use-pre-agg", false, "use the metrics of sum over 1m")
 
 	freshnessSecs int64 = 0
 	timeRangeSecs int64 = 0
@@ -52,7 +53,15 @@ func runQueries() {
 		step := sumWindowSecs
 
 		instance := instanceList[rand.Intn(len(instanceList))]
-		query := fmt.Sprintf("sum(label_replace(topk(5, sum_over_time(cpu_time{instance=\"tikv-%d\"}[%s])), \"digest\", \"$1\", \"tag\", \"(.*)\") * on(digest) group_left(sql) sql_digest{}) by (instance, sql)", instance, *sumWindow)
+
+		var metricsName string
+		if *usePreAgg {
+			metricsName = "cpu_time_in_minute"
+		} else {
+			metricsName = "cpu_time"
+		}
+		query := fmt.Sprintf("sum(label_replace(topk(5, sum_over_time(%s{instance=\"tikv-%d\"}[%s])), \"digest\", \"$1\", \"tag\", \"(.*)\") * on(digest) group_left(sql) sql_digest{}) by (instance, sql)", metricsName, instance, *sumWindow)
+		//query := fmt.Sprintf("topk(5, sum_over_time(cpu_time{instance=\"tikv-%d\"}[%s]))", instance, *sumWindow)
 
 		if req, err := http.NewRequest("GET", *url, nil); err != nil {
 			log.Panic(err)

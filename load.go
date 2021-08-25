@@ -20,6 +20,7 @@ var (
 	tagCount       = flag.Uint("tag-count", 200, "tag count per second")
 	instanceCount  = flag.Uint("instance-count", 1000, "instance count")
 	url            = flag.String("vm-url", "http://localhost:8428/api/v1/import", "vm import url")
+	withPreAgg     = flag.Bool("with-pre-agg", false, "load data with sum over 1m")
 	gz             = flag.Bool("gzip", false, "compress import requests by gzip")
 )
 
@@ -81,6 +82,25 @@ func importDataToVM() {
 				}
 				if err := jsonw.Encode(m); err != nil {
 					log.Panic(err)
+				}
+
+				if *withPreAgg {
+					s := int64(0)
+					for _, value := range m.Values {
+						s += value
+					}
+					agg := Metrics{Metric: map[string]string{
+						"__name__": "cpu_time_in_minute",
+						"tag":      tag,
+						"instance": fmt.Sprintf("tikv-%d", ins),
+					},
+						Values:     []int64{s},
+						Timestamps: []int64{reportTs * 1000},
+					}
+					if err := jsonw.Encode(agg); err != nil {
+						log.Panic(err)
+					}
+					atomic.AddInt64(&metricsWrittenCount, 1)
 				}
 			}
 		}
