@@ -45,8 +45,8 @@ func main() {
 
 func runQueries() {
 	for {
-		now := time.Now().Unix()
-		end := now - rand.Int63n(freshnessSecs)
+		now := time.Now()
+		end := now.Unix() - rand.Int63n(freshnessSecs)
 		end = end - end%sumWindowSecs
 		start := end - timeRangeSecs
 		step := sumWindowSecs
@@ -64,7 +64,6 @@ func runQueries() {
 			q.Add("step", strconv.Itoa(int(step)))
 			req.URL.RawQuery = q.Encode()
 
-			now := time.Now()
 			if resp, err := http.DefaultClient.Do(req); err != nil {
 				log.Panic(err)
 			} else {
@@ -77,7 +76,7 @@ func runQueries() {
 				}
 
 				lock.Lock()
-				_ = hist.RecordValue(int64(time.Now().Nanosecond() - now.Nanosecond()))
+				_ = hist.RecordValue(time.Now().UnixNano() - now.UnixNano())
 				lock.Unlock()
 				atomic.AddInt64(&metricsWrittenCount, 1)
 			}
